@@ -1,0 +1,1 @@
+An implementation of the Blowfish encryption algorithm in C based on Bruce Schneier's description of the algorithm in https://www.schneier.com/academic/archives/1994/09/description_of_a_new.html
