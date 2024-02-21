@@ -63,9 +63,7 @@ static void cryptBlock(uint64_t *block, bool encrypt)
 
 void encryptBlock(uint64_t *block)
 {
-    cryptBlock(block, true);
     // printf("Encrypting block\n");
-    /*
     uint32_t rightHalf = (uint32_t)(*block & 0xFFFFFFFF);
     uint32_t leftHalf = (uint32_t)(*block >> 32);
     uint32_t temp;
@@ -83,18 +81,15 @@ void encryptBlock(uint64_t *block)
     leftHalf = rightHalf;
     rightHalf = temp;
 
-    rightHalf = rightHalf ^ pArray[16];
-    leftHalf = leftHalf ^ pArray[17];
+    rightHalf = rightHalf ^ pArray[pArrayLength - 2];
+    leftHalf = leftHalf ^ pArray[pArrayLength - 1];
 
     *block = ((uint64_t)leftHalf << 32) | rightHalf;
-    */
 }
 
 void decryptBlock(uint64_t *block)
 {
-    cryptBlock(block, false);
-    // printf("Encrypting block\n");
-    /*
+    // printf("decrypting block\n");
     uint32_t rightHalf = (uint32_t)(*block & 0xFFFFFFFF);
     uint32_t leftHalf = (uint32_t)(*block >> 32);
     uint32_t temp;
@@ -116,14 +111,13 @@ void decryptBlock(uint64_t *block)
     leftHalf = leftHalf ^ pArray[0];
 
     *block = ((uint64_t)leftHalf << 32) | rightHalf;
-    */
 }
 
 void encryptData(uint64_t *data, size_t dataLength)
 {
     for (int i = 0; i < dataLength; ++i)
     {
-        encryptBlock(&data[i]);
+        encryptBlock(data + i);
     }
 }
 
@@ -131,20 +125,23 @@ void decryptData(uint64_t *data, size_t dataLength)
 {
     for (int i = 0; i < dataLength; ++i)
     {
-        decryptBlock(&data[i]);
+        decryptBlock(data + i);
     }
 }
 
 void initBlowfish(uint8_t *key, size_t keyLength)
 {
     int keyIndex = 0;
-    for (int i = 0; i < pArrayLength * sizeof(uint32_t); ++i)
+    for (int i = 0; i < pArrayLength; ++i)
     {
-        if (keyIndex >= keyLength)
+        for (int j = 0; j < sizeof(uint32_t); ++j)
         {
-            keyIndex = 0;
+            if (keyIndex >= keyLength)
+            {
+                keyIndex = 0;
+            }
+            pArray[i] = (pArray[i] & (uint32_t)(0xFFFFFFFF00FFFFFF >> (8 * j))) | ((uint32_t)((uint8_t)(pArray[i] >> (24 - (8 * j))) ^ key[keyIndex++]) << 24 - (8 * j));
         }
-        pArray[i / 4] = (pArray[i / 4] & (uint32_t)(0xFFFFFFFF00FFFFFF >> (24 - (8 * (i % 4))))) | ((uint32_t)((uint8_t)(pArray[i / 4] >> (8 * (i % 4))) ^ key[keyIndex++])) << (8 * (i % 4));
     }
     uint64_t block = 0x0000000000000000;
     for (int i = 0; i < pArrayLength; i += 2)
@@ -180,8 +177,8 @@ void printText(uint64_t *data, size_t length)
 {
     for (int i = 0; i < length; ++i)
     {
-        for (int i = 0; i < sizeof(uint64_t); ++i)
-            printf("%c", (uint8_t)(data[i] >> 8 * (i % 4)));
+        for (int j = 0; j < sizeof(uint64_t); ++j)
+            printf("%c", (uint8_t)(data[i] >> 8 * j));
     }
 }
 
@@ -191,16 +188,19 @@ void printText(uint64_t *data, size_t length)
 int main()
 {
     // uint8_t set_key[24] = {0xF0, 0xE1, 0xD2, 0xC3, 0xB4, 0xA5, 0x96, 0x87,0x78, 0x69, 0x5A, 0x4B, 0x3C, 0x2D, 0x1E, 0x0F,0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77};
-    // uint8_t set_key[] = "\x96\xCA\x99\x9F\x8D\xDA\x9A\x87\xD7\xCD\xD9\xBB\x93\xD1\xBE\xC0\xD7\x91\x71\xDC\x9E\xD9\x8D\xD0\xD1\x8C\xD8\xC3\xA0\xB0\xC6\x95\xC3\x9C\x93\xBB\xCC\xCC\xA7\xD3\xB9\xD9\xD9\xD0\x8E\x93\xBE\xDA\xAE\xD1\x8D\x77\xD5\xD3\xA3\x96\xCA\x99\x9F\x8D\xDA\x9A\x87\xD7\xCD\xD9\xBB\x93\xD1\xBE\xC0\xD7\x91\x71\xDC\x9E\xD9\x8D\xD0\xD1\x8C\xD8\xC3\xA0\xB0\xC6\x95\xC3\x9C\x93\xBB\xCC\xCC\xA7\xD3\xB9\xD9\xD9\xD0\x8E\x93\xBE\xDA\xAE\xD1\x8D\x77\xD5\xD3\xA3";
+    // uint8_t set_key[keyLength] = "\x96\xCA\x99\x9F\x8D\xDA\x9A\x87\xD7\xCD\xD9\xBB\x93\xD1\xBE\xC0\xD7\x91\x71\xDC\x9E\xD9\x8D\xD0\xD1\x8C\xD8\xC3\xA0\xB0\xC6\x95\xC3\x9C\x93\xBB\xCC\xCC\xA7\xD3\xB9\xD9\xD9\xD0\x8E\x93\xBE\xDA\xAE\xD1\x8D\x77\xD5\xD3\xA3\x96\xCA\x99\x9F\x8D\xDA\x9A\x87\xD7\xCD\xD9\xBB\x93\xD1\xBE\xC0\xD7\x91\x71\xDC\x9E\xD9\x8D\xD0\xD1\x8C\xD8\xC3\xA0\xB0\xC6\x95\xC3\x9C\x93\xBB\xCC\xCC\xA7\xD3\xB9\xD9\xD9\xD0\x8E\x93\xBE\xDA\xAE\xD1\x8D\x77\xD5\xD3\xA3";
     // uint8_t set_key[] = "\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF";
     // uint8_t set_key[] = "\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF";
-    uint8_t key[] = "\xFF";
-    uint64_t plainText[dataLength] = {0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF};
-    // extendKey(key, keyLength, extendedKey);
+
+    uint8_t key[] = "\x7C\xA1\x10\x45\x4A\x1A\x6E\x57";
+    uint64_t plainText[] = {0x01A1D6D039776742, 0x01A1D6D039776742};
     initBlowfish(key, keyLength);
-    encryptData(plainText, dataLength);
-    printData(plainText, dataLength);
-    decryptData(plainText, dataLength);
-    printData(plainText, dataLength);
+    printData(plainText, 2);
+    encryptData(plainText, 2);
+    printData(plainText, 2);
+    decryptData(plainText, 2);
+    printData(plainText, 2);
+
+
     return 0;
 }
